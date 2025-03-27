@@ -22,6 +22,7 @@ from transformers import (
 import tiktoken
 import torch
 import logging
+from lpm_kernel.configs.logging import TRAIN_LOG_FILE
 
 from lpm_kernel.L2.training_prompt import (
     CONTEXT_PROMPT,
@@ -334,11 +335,6 @@ def setup_logger(log_path, logger_name="download_logger"):
     
     return logger
 
-def get_default_log_path():
-    """Get the default log file path."""
-    log_dir = os.path.join(os.getcwd(), "logs")
-    os.makedirs(log_dir, exist_ok=True)
-    return os.path.join(log_dir, "model_download.log")
 
 def save_hf_model(model_name="Qwen2.5-0.5B-Instruct", log_file_path=None) -> str:
     """Saves a Hugging Face model locally.
@@ -352,12 +348,16 @@ def save_hf_model(model_name="Qwen2.5-0.5B-Instruct", log_file_path=None) -> str
     """
     # If log_file_path is None or empty, use default path
     if not log_file_path:
-        log_file_path = get_default_log_path()
+        log_file_path = TRAIN_LOG_FILE
     
     # Setup logging
     logger = setup_logger(log_file_path)
     
-    save_path = os.path.join(os.getcwd(), "resources/L2/base_models", model_name)
+    base_dir = os.path.join(os.getcwd(), "resources/L2/base_models")
+    normalized_model_name = os.path.normpath(model_name)
+    if ".." in normalized_model_name or normalized_model_name.startswith("/"):
+        raise ValueError("Invalid model name")
+    save_path = os.path.join(base_dir, normalized_model_name)
     os.makedirs(save_path, exist_ok=True)
 
     from huggingface_hub import list_repo_files, configure_http_backend
