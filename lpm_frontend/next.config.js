@@ -1,14 +1,16 @@
 const nextConfig = {
   reactStrictMode: false,
   async rewrites() {
+    const API_URL = `${process.env.HOST_ADDRESS || 'http://127.0.0.1'}:${process.env.LOCAL_APP_PORT || 8002}`;
+
     return [
       {
         source: '/',
         destination: '/home'
       },
       {
-        source: '/api/:path*', // Ensure source starts with `/api/`
-        destination: 'http://127.0.0.1:8002/api/:path*' // Need to add `/api/` here
+        source: '/api/:path*',
+        destination: `${API_URL}/api/:path*`
       }
     ];
   },
@@ -35,7 +37,7 @@ const nextConfig = {
     ];
   },
   experimental: {
-    proxyTimeout: 0 // Disable proxy timeout
+    proxyTimeout: 0
   },
   compiler: {
     styledComponents: true
