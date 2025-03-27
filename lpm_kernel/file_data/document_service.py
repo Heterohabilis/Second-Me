@@ -124,7 +124,7 @@ class DocumentService:
         Returns:
             Document: updated doc
         Raises:
-            Exception: error occured
+            Exception: error occurred
         """
         try:
             # generate insight
@@ -181,7 +181,7 @@ class DocumentService:
         Returns:
             List[DocumentDTO]: finished doc list
         Raises:
-            Exception: error occured
+            Exception: error occurred
         """
         try:
             # get all unanalyzed documents
@@ -296,7 +296,7 @@ class DocumentService:
     #     Args:
     #         chunk (Chunk): chunk obj
     #     Raises:
-    #         Exception: error occured
+    #         Exception: error occurred
     #     """
     #     try:
     #         # create ChunkModel instance
@@ -360,7 +360,7 @@ class DocumentService:
         Returns:
             List[ChunkDTO]: chunks list
         Raises:
-            Exception: error occured
+            Exception: error occurred
         """
         try:
             chunks_dtos = self._repository.find_chunks(document_id)
@@ -399,7 +399,7 @@ class DocumentService:
         Returns:
             Dict[int, List[float]]: chunk_id to embedding mapping
         Raises:
-            Exception: error occured
+            Exception: error occurred
         """
         try:
             # get all chunks ID
@@ -434,7 +434,7 @@ class DocumentService:
             List[float]: doc embedding
         Raises:
             ValueError: doc not exist
-            Exception: error occured
+            Exception: error occurred
         """
         try:
             document = self._repository.find_one(document_id)
@@ -484,7 +484,7 @@ class DocumentService:
         Returns:
             Optional[List[float]]: doc embedding
         Raises:
-            Exception: error occured
+            Exception: error occurred
         """
         try:
             results = self.embedding_service.document_collection.get(
@@ -508,7 +508,7 @@ class DocumentService:
             bool: if success
             
         Raises:
-            Exception: error occured
+            Exception: error occurred
         """
         logger.info(f"Starting to delete file: {filename}")
         
