@@ -1,7 +1,8 @@
 const nextConfig = {
   reactStrictMode: false,
   async rewrites() {
-    const API_URL = `${process.env.HOST_ADDRESS || 'http://127.0.0.1'}:${process.env.LOCAL_APP_PORT || 8002}`;
+    const dockerApiBaseUrl = process.env.DOCKER_API_BASE_URL;
+    const localApiBaseUrl = `${process.env.HOST_ADDRESS || 'http://127.0.0.1'}:${process.env.LOCAL_APP_PORT || 8002}`;
 
     return [
       {
@@ -10,7 +11,9 @@ const nextConfig = {
       },
       {
         source: '/api/:path*',
-        destination: `${API_URL}/api/:path*`
+        destination: dockerApiBaseUrl
+          ? `${dockerApiBaseUrl}/api/:path*`
+          : `${localApiBaseUrl}/api/:path*`
       }
     ];
   },
