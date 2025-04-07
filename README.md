@@ -71,6 +71,8 @@ Star and join us, and you will receive all release notifications from GitHub wit
 > - For Docker Compose installation: [Install Docker Compose](https://docs.docker.com/compose/install/)
 >
 > **Note:** If your Docker installation doesn't have the `docker-compose` command, use `docker compose` instead and modify the Makefile accordingly.
+>
+> **For Windows Users:** You can use [MinGW](https://www.mingw-w64.org/) to run `make` commands. You may need to modify the Makefile by replacing Unix-specific commands with Windows-compatible alternatives.
 
 ##### Setup Steps
 
