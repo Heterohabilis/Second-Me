@@ -13,9 +13,8 @@ logger.error("ERROR: ScriptExecutor module loaded")
 
 class ScriptExecutor:
     def __init__(self):
-        self.conda_env = os.getenv("CONDA_DEFAULT_ENV")
-        if not self.conda_env:
-            raise ValueError("CONDA_DEFAULT_ENV environment variable is not set")
+        # Check if running in Docker environment
+        self.in_docker = os.getenv("IN_DOCKER_ENV") == "1" or os.path.exists("/.dockerenv")
 
     def execute(
         self,
@@ -26,7 +25,7 @@ class ScriptExecutor:
         log_file: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Execute scripts in the specified conda environment
+        Execute scripts directly
 
         Args:
             script_path: Script path or command
@@ -42,29 +41,13 @@ class ScriptExecutor:
             # Build the complete command
             if script_path.endswith(".py"):
                 # Python script
-                cmd = [
-                    "conda",
-                    "run",
-                    "-n",
-                    self.conda_env,
-                    "python",
-                    "-u",
-                    script_path,
-                ]  # Add -u parameter to disable output buffering
+                cmd = ["python", "-u", script_path]  # Add -u parameter to disable output buffering
             elif script_path.endswith(".sh"):
                 # Shell script
-                cmd = [
-                    "conda",
-                    "run",
-                    "-n",
-                    self.conda_env,
-                    "bash",
-                    "-x",
-                    script_path,
-                ]  # Add -x parameter to display executed commands
+                cmd = ["bash", "-x", script_path]  # Add -x parameter to display executed commands
             else:
                 # Other commands
-                cmd = ["conda", "run", "-n", self.conda_env, script_path]
+                cmd = [script_path]
 
             # Add additional parameters
             if args:

@@ -7,7 +7,8 @@ import {
   ApiOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  SyncOutlined
+  SyncOutlined,
+  QuestionCircleOutlined
 } from '@ant-design/icons';
 
 import type { Upload } from '@/service/upload';
@@ -19,6 +20,7 @@ import { updateRegisteredUpload } from '@/utils/localRegisteredUpload';
 import NetWorkMemberList from './NetWorkMemberList';
 import { useLoadInfoStore } from '@/store/useLoadInfoStore';
 import { getCurrentInfo } from '@/service/info';
+import { copyToClipboard } from '@/utils/copy';
 
 interface RegisterUploadModalProps {
   open: boolean;
@@ -168,6 +170,7 @@ export default function RegisterUploadModal({ open, onClose }: RegisterUploadMod
 
       if (response.data.code === 0) {
         const uploadInfo = response.data.data;
+
         startPolling();
         // Store upload information in the store
         addUpload(uploadInfo);
@@ -192,7 +195,7 @@ export default function RegisterUploadModal({ open, onClose }: RegisterUploadMod
   };
 
   const handleDelete = async (upload: Upload) => {
-    if (!upload || !upload.upload_name || !upload.instance_id) {
+    if (!upload.upload_name || !upload.instance_id) {
       messageApi.error('Invalid Second Me data');
 
       return;
@@ -237,10 +240,15 @@ export default function RegisterUploadModal({ open, onClose }: RegisterUploadMod
           <button
             className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 bg-indigo-100 text-indigo-600 rounded-md hover:bg-indigo-200 transition-colors"
             onClick={() => {
-              navigator.clipboard.writeText(
+              copyToClipboard(
                 `https://app.secondme.io/${currentUpload.upload_name}/${currentUpload.instance_id}`
-              );
-              message.success('Copied to clipboard');
+              )
+                .then(() => {
+                  message.success('Copied.');
+                })
+                .catch(() => {
+                  message.error('Copy failed, please copy manually.');
+                });
             }}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,7 +262,17 @@ export default function RegisterUploadModal({ open, onClose }: RegisterUploadMod
           </button>
         </div>
 
-        <div className="text-sm leading-5 text-indigo-600 mt-4 mb-1 font-medium">Chat Endpoint</div>
+        <div className="flex justify-start items-center mt-4 mb-1 gap-2">
+          <div className="text-sm leading-5 text-indigo-600 font-medium">Chat Endpoint</div>
+          <a
+            className="flex items-center"
+            href="https://github.com/mindverse/Second-Me/blob/master/docs/Public%20Chat%20API.md"
+            rel="noreferrer"
+            target="_blank"
+          >
+            <QuestionCircleOutlined className="cursor-pointer text-indigo-600" />
+          </a>
+        </div>
         <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-lg shadow-sm border border-indigo-100 relative">
           <div className="text-sm text-indigo-700 truncate w-[90%]">
             https://app.secondme.io/api/chat/{currentUpload.instance_id}/chat/completions
@@ -262,10 +280,15 @@ export default function RegisterUploadModal({ open, onClose }: RegisterUploadMod
           <button
             className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 bg-indigo-100 text-indigo-600 rounded-md hover:bg-indigo-200 transition-colors"
             onClick={() => {
-              navigator.clipboard.writeText(
+              copyToClipboard(
                 `https://app.secondme.io/api/chat/${currentUpload.instance_id}/chat/completions`
-              );
-              message.success('Copied to clipboard');
+              )
+                .then(() => {
+                  message.success('Copied.');
+                })
+                .catch(() => {
+                  message.error('Copy failed, please copy manually.');
+                });
             }}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -387,7 +410,7 @@ export default function RegisterUploadModal({ open, onClose }: RegisterUploadMod
 
                           if (checked) {
                             handleRegister();
-                          } else if (currentUpload?.upload_name && currentUpload?.instance_id) {
+                          } else if (currentUpload.upload_name && currentUpload.instance_id) {
                             handleDelete(currentUpload);
                           }
                         }}

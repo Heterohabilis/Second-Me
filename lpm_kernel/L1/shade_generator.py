@@ -1,6 +1,5 @@
 from typing import Dict, List, Any, Optional
 import json
-import logging
 import re
 import traceback
 
@@ -26,6 +25,10 @@ from lpm_kernel.L1.prompt import (
 from lpm_kernel.api.services.user_llm_config_service import UserLLMConfigService
 from lpm_kernel.configs.config import Config
 
+from lpm_kernel.api.common.script_executor import ScriptExecutor
+
+from lpm_kernel.configs.logging import get_train_process_logger
+logger = get_train_process_logger()
 
 class ShadeGenerator:
     def __init__(self):
@@ -50,7 +53,71 @@ class ShadeGenerator:
                 base_url=self.user_llm_config.chat_endpoint,
             )
             self.model_name = self.user_llm_config.chat_model_name
+        self._top_p_adjusted = False  # Flag to track if top_p has been adjusted
 
+    def _fix_top_p_param(self, error_message: str) -> bool:
+        """Fixes the top_p parameter if an API error indicates it's invalid.
+        
+        Some LLM providers don't accept top_p=0 and require values in specific ranges.
+        This function checks if the error is related to top_p and adjusts it to 0.001,
+        which is close enough to 0 to maintain deterministic behavior while satisfying
+        API requirements.
+        
+        Args:
+            error_message: Error message from the API response.
+            
+        Returns:
+            bool: True if top_p was adjusted, False otherwise.
+        """
+        if not self._top_p_adjusted and "top_p" in error_message.lower():
+            logger.warning("Fixing top_p parameter from 0 to 0.001 to comply with model API requirements")
+            self.model_params["top_p"] = 0.001
+            self._top_p_adjusted = True
+            return True
+        return False
+
+    def _call_llm_with_retry(self, messages: List[Dict[str, str]], **kwargs) -> Any:
+        """Calls the LLM API with automatic retry for parameter adjustments.
+        
+        This function handles making API calls to the language model while
+        implementing automatic parameter fixes when errors occur. If the API
+        rejects the call due to invalid top_p parameter, it will adjust the
+        parameter value and retry the call once.
+        
+        Args:
+            messages: List of messages for the API call.
+            **kwargs: Additional parameters to pass to the API call.
+            
+        Returns:
+            API response object from the language model.
+            
+        Raises:
+            Exception: If the API call fails after all retries or for unrelated errors.
+        """
+        try:
+            return self.client.chat.completions.create(
+                model=self.model_name,
+                messages=messages,
+                **self.model_params,
+                **kwargs
+            )
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"API Error: {error_msg}")
+            
+            # Try to fix top_p parameter if needed
+            if hasattr(e, 'response') and hasattr(e.response, 'status_code') and e.response.status_code == 400:
+                if self._fix_top_p_param(error_msg):
+                    logger.info("Retrying LLM API call with adjusted top_p parameter")
+                    return self.client.chat.completions.create(
+                        model=self.model_name,
+                        messages=messages,
+                        **self.model_params,
+                        **kwargs
+                    )
+            
+            # Re-raise the exception
+            raise
 
     def _build_message(self, system_prompt: str, user_prompt: str) -> List[Dict[str, str]]:
         """Builds the message structure for the LLM API.
@@ -98,11 +165,7 @@ Domain Timelines:
         shift_perspective_message = self._build_message(
             PERSON_PERSPECTIVE_SHIFT_V2_PROMPT, user_prompt
         )
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=shift_perspective_message,
-            **self.model_params,
-        )
+        response = self._call_llm_with_retry(shift_perspective_message)
         content = response.choices[0].message.content
         shift_pattern = r"\{.*\}"
         shift_perspective_result = self.__parse_json_response(content, shift_pattern)
@@ -125,12 +188,12 @@ Domain Timelines:
         """
         matches = re.findall(pattern, content, re.DOTALL)
         if not matches:
-            logging.error(f"No Json Found: {content}")
+            logger.error(f"No Json Found: {content}")
             return default_res
         try:
             json_res = json.loads(matches[0])
         except Exception as e:
-            logging.error(f"Json Parse Error: {traceback.format_exc()}-{content}")
+            logger.error(f"Json Parse Error: {traceback.format_exc()}-{content}")
             return default_res
         return json_res
 
@@ -148,10 +211,10 @@ Domain Timelines:
         shade_raw_info = self.__parse_json_response(content, shade_generate_pattern)
 
         if not shade_raw_info:
-            logging.error(f"Failed to parse the shade generate result: {content}")
+            logger.error(f"Failed to parse the shade generate result: {content}")
             return {}  # Return an empty dictionary
 
-        logging.info(f"Shade Generate Result: {shade_raw_info}")
+        logger.info(f"Shade Generate Result: {shade_raw_info}")
 
         raw_shade_info = ShadeInfo(
             name=shade_raw_info.get("domainName", ""),
@@ -168,7 +231,7 @@ Domain Timelines:
         return raw_shade_info
 
 
-    def _inital_shade_process(self, new_memory_list: List[Note]) -> Optional[ShadeInfo]:
+    def _initial_shade_process(self, new_memory_list: List[Note]) -> Optional[ShadeInfo]:
         """Processes the initial shade generation from new memories.
         
         Args:
@@ -181,12 +244,10 @@ Domain Timelines:
 
         shade_generate_message = self._build_message(SHADE_INITIAL_PROMPT, user_prompt)
 
-        response = self.client.chat.completions.create(
-            model=self.model_name, messages=shade_generate_message, **self.model_params
-        )
+        response = self._call_llm_with_retry(shade_generate_message)
         content = response.choices[0].message.content
 
-        logging.info(f"Shade Generate Result: {content}")
+        logger.info(f"Shade Generate Result: {content}")
         return self.__shade_initial_postprocess(content)
 
 
@@ -210,11 +271,9 @@ Domain Timelines:
         )
 
         merge_shades_message = self._build_message(SHADE_MERGE_PROMPT, user_prompt)
-        response = self.client.chat.completions.create(
-            model=self.model_name, messages=merge_shades_message, **self.model_params
-        )
+        response = self._call_llm_with_retry(merge_shades_message)
         content = response.choices[0].message.content
-        logging.info(f"Shade Generate Result: {content}")
+        logger.info(f"Shade Generate Result: {content}")
         return self.__shade_merge_postprocess(content)
 
 
@@ -235,7 +294,7 @@ Domain Timelines:
         if not shade_merge_info:
             raise Exception(f"Failed to parse the shade generate result: {content}")
 
-        logging.info(f"Shade Merge Result: {shade_merge_info}")
+        logger.info(f"Shade Merge Result: {shade_merge_info}")
         merged_shade_info = ShadeInfo(
             name=shade_merge_info.get("newInterestName", ""),
             aspect=shade_merge_info.get("newInterestAspect", ""),
@@ -270,7 +329,7 @@ Domain Timelines:
         if not shade_improve_info:
             raise Exception(f"Failed to parse the shade generate result: {content}")
 
-        logging.info(f"Shade Improve Result: {shade_improve_info}")
+        logger.info(f"Shade Improve Result: {shade_improve_info}")
         old_shade.imporve_shade_info(**shade_improve_info)
         shade_info = self.__add_second_view_info(old_shade)
         return shade_info
@@ -299,11 +358,9 @@ Recent Memories:
 {recent_memories_str}
 """
         shade_improve_message = self._build_message(SHADE_IMPROVE_PROMPT, user_prompt)
-        response = self.client.chat.completions.create(
-            model=self.model_name, messages=shade_improve_message, **self.model_params
-        )
+        response = self._call_llm_with_retry(shade_improve_message)
         content = response.choices[0].message.content
-        logging.info(f"Shade Generate Result: {content}")
+        logger.info(f"Shade Generate Result: {content}")
         return self.__shade_improve_postprocess(old_shade_info, content)
 
 
@@ -329,30 +386,30 @@ Recent Memories:
         Raises:
             Exception: If input parameters are abnormal.
         """
-        logging.warning(f"shade_info_list: {shade_info_list}")
-        logging.warning(f"old_memory_list: {old_memory_list}")
-        logging.warning(f"new_memory_list: {new_memory_list}")
+        logger.warning(f"shade_info_list: {shade_info_list}")
+        logger.warning(f"old_memory_list: {old_memory_list}")
+        logger.warning(f"new_memory_list: {new_memory_list}")
         
         if not (shade_info_list or old_memory_list):
-            logging.info(
+            logger.info(
                 f"Shades initial Process! Current shade have {len(new_memory_list)} memories!"
             )
-            new_shade = self._inital_shade_process(new_memory_list)
+            new_shade = self._initial_shade_process(new_memory_list)
         elif shade_info_list and old_memory_list:
             if len(shade_info_list) > 1:
-                logging.info(
+                logger.info(
                     f"Merge shades Process! {len(shade_info_list)} shades need to be merged!"
                 )
                 raw_shade = self._merge_shades_info(old_memory_list, shade_info_list)
             else:
                 raw_shade = shade_info_list[0]
-            logging.info(
+            logger.info(
                 f"Update shade Process! Current shade should improve {len(new_memory_list)} memories!"
             )
             new_shade = self._improve_shade_info(new_memory_list, raw_shade)
         else:
             # Means either shade_info_list or old_memory_list is empty, indicating an abnormal backend input parameter.
-            logging.error(traceback.format_exc())
+            logger.error(traceback.format_exc())
             raise Exception(
                 "The shade_info_list or old_memory_list is empty! Please check the input!"
             )
@@ -388,7 +445,72 @@ class ShadeMerger:
             "timeout": 45,
         }
         self.preferred_language = "en"
+        self._top_p_adjusted = False  # Flag to track if top_p has been adjusted
 
+
+    def _fix_top_p_param(self, error_message: str) -> bool:
+        """Fixes the top_p parameter if an API error indicates it's invalid.
+        
+        Some LLM providers don't accept top_p=0 and require values in specific ranges.
+        This function checks if the error is related to top_p and adjusts it to 0.001,
+        which is close enough to 0 to maintain deterministic behavior while satisfying
+        API requirements.
+        
+        Args:
+            error_message: Error message from the API response.
+            
+        Returns:
+            bool: True if top_p was adjusted, False otherwise.
+        """
+        if not self._top_p_adjusted and "top_p" in error_message.lower():
+            logger.warning("Fixing top_p parameter from 0 to 0.001 to comply with model API requirements")
+            self.model_params["top_p"] = 0.001
+            self._top_p_adjusted = True
+            return True
+        return False
+
+    def _call_llm_with_retry(self, messages: List[Dict[str, str]], **kwargs) -> Any:
+        """Calls the LLM API with automatic retry for parameter adjustments.
+        
+        This function handles making API calls to the language model while
+        implementing automatic parameter fixes when errors occur. If the API
+        rejects the call due to invalid top_p parameter, it will adjust the
+        parameter value and retry the call once.
+        
+        Args:
+            messages: List of messages for the API call.
+            **kwargs: Additional parameters to pass to the API call.
+            
+        Returns:
+            API response object from the language model.
+            
+        Raises:
+            Exception: If the API call fails after all retries or for unrelated errors.
+        """
+        try:
+            return self.client.chat.completions.create(
+                model=self.model_name,
+                messages=messages,
+                **self.model_params,
+                **kwargs
+            )
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"API Error: {error_msg}")
+            
+            # Try to fix top_p parameter if needed
+            if hasattr(e, 'response') and hasattr(e.response, 'status_code') and e.response.status_code == 400:
+                if self._fix_top_p_param(error_msg):
+                    logger.info("Retrying LLM API call with adjusted top_p parameter")
+                    return self.client.chat.completions.create(
+                        model=self.model_name,
+                        messages=messages,
+                        **self.model_params,
+                        **kwargs
+                    )
+            
+            # Re-raise the exception
+            raise
 
     def _build_user_prompt(self, shade_info_list: List[ShadeMergeInfo]) -> str:
         """Builds a user prompt from shade information list.
@@ -493,12 +615,12 @@ class ShadeMerger:
         """
         matches = re.findall(pattern, content, re.DOTALL)
         if not matches:
-            logging.error(f"No Json Found: {content}")
+            logger.error(f"No Json Found: {content}")
             return default_res
         try:
             json_res = json.loads(matches[0])
         except Exception as e:
-            logging.error(f"Json Parse Error: {traceback.format_exc()}-{content}")
+            logger.error(f"Json Parse Error: {traceback.format_exc()}-{content}")
             return default_res
         return json_res
 
@@ -514,25 +636,21 @@ class ShadeMerger:
         """
         try:
             for shade in shade_info_list:
-                logging.info(f"shade: {shade}")
+                logger.info(f"shade: {shade}")
 
             user_prompt = self._build_user_prompt(shade_info_list)
             merge_decision_message = self._build_message(
                 SHADE_MERGE_DEFAULT_SYSTEM_PROMPT, user_prompt
             )
-            logging.info(f"Built merge_decision_message: {merge_decision_message}")
+            logger.info(f"Built merge_decision_message: {merge_decision_message}")
 
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=merge_decision_message,
-                **self.model_params,
-            )
+            response = self._call_llm_with_retry(merge_decision_message)
             content = response.choices[0].message.content
-            logging.info(f"Shade Merge Decision Result: {content}")
+            logger.info(f"Shade Merge Decision Result: {content}")
 
             try:
                 merge_shade_list = self.__parse_json_response(content, r"\[.*\]")
-                logging.info(f"Parsed merge_shade_list: {merge_shade_list}")
+                logger.info(f"Parsed merge_shade_list: {merge_shade_list}")
             except Exception as e:
                 raise Exception(
                     f"Failed to parse the shade merge list: {content}"
@@ -546,7 +664,7 @@ class ShadeMerger:
                 final_merge_shade_list = []
                 for group in merge_shade_list:
                     shade_ids = group  # Directly use group as it's now a list
-                    logging.info(f"Processing group with shadeIds: {shade_ids}")
+                    logger.info(f"Processing group with shadeIds: {shade_ids}")
                     if not shade_ids:
                         continue
 
@@ -557,7 +675,7 @@ class ShadeMerger:
 
                     # Skip current group if shades is empty
                     if not shades:
-                        logging.info(
+                        logger.info(
                             f"No valid shades found for shadeIds: {shade_ids}. Skipping this group."
                         )
                         continue
@@ -566,7 +684,7 @@ class ShadeMerger:
                     new_cluster_embedd = self._calculate_merged_shades_center_embed(
                         shades
                     )
-                    logging.info(
+                    logger.info(
                         f"Calculated new cluster embedding: {new_cluster_embedd}"
                     )
 
@@ -578,7 +696,7 @@ class ShadeMerger:
             response = ShadeMergeResponse(result=result, success=True)
 
         except Exception as e:
-            logging.error(traceback.format_exc())
+            logger.error(traceback.format_exc())
             response = ShadeMergeResponse(result=str(e), success=False)
 
         return response

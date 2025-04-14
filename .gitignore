@@ -8,11 +8,13 @@ __pycache__
 .ruff_cache/
 poetry.lock
 .hf_cache/
+.poetry-venv/
 
 llama.cpp
 *.ipynb
 data/db/*
 data/chroma_db/*
+data/
 lpm_kernel/L2/base_model/
 lpm_kernel/L2/data_pipeline/output/
 lpm_kernel/L2/data_pipeline/graphrag_indexing/cache/
@@ -63,6 +65,7 @@ resources/L2/data/*
 resources/model/output/gguf/*
 resources/L2/base_models/*
 logs/*.log
+logs/train/*.log
 
 # Runtime files
 run/*
@@ -71,3 +74,4 @@ run/*
 #config
 .backend.pid
 .frontend.pid
+logs/train/

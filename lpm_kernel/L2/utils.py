@@ -22,6 +22,7 @@ from transformers import (
 import tiktoken
 import torch
 import logging
+from lpm_kernel.configs.logging import TRAIN_LOG_FILE
 
 from lpm_kernel.L2.training_prompt import (
     CONTEXT_PROMPT,
@@ -160,13 +161,20 @@ def create_and_prepare_model(args, data_args, training_args):
             load_in_4bit=args.use_4bit_quantization,
         )
     else:
-        model = AutoModelForCausalLM.from_pretrained(
-            args.model_name_or_path,
-            quantization_config=bnb_config,
-            trust_remote_code=True,
-            attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
-            torch_dtype=torch.bfloat16,
-        )
+        if os.getenv("PLATFORM") != "apple":
+            model = AutoModelForCausalLM.from_pretrained(
+                args.model_name_or_path,
+                quantization_config=bnb_config,
+                trust_remote_code=True,
+                attn_implementation="flash_attention_2" if args.use_flash_attn else "eager",
+                torch_dtype=torch.bfloat16
+            )
+        else:
+            model = AutoModelForCausalLM.from_pretrained(
+                args.model_name_or_path,
+                quantization_config=bnb_config,
+                trust_remote_code=True
+            )
 
     peft_config = None
     chat_template = None
@@ -269,7 +277,7 @@ def create_chat_data(data_args, tokenizer):
         sample['assistant'] = sample['assistant'].strip('\n')
         
         messages = [
-            {"role": "system", "content": MEMORY_COT_PROMPT if is_cot else MEMORY_PROMPT.format(user_name=user_name)},
+            {"role": "system", "content": MEMORY_COT_PROMPT.format(user_name=user_name) if is_cot else MEMORY_PROMPT.format(user_name=user_name)},
             {"role": "user", "content": sample['user']},
             {"role": "assistant", "content": sample['assistant']},
         ]
@@ -334,11 +342,6 @@ def setup_logger(log_path, logger_name="download_logger"):
     
     return logger
 
-def get_default_log_path():
-    """Get the default log file path."""
-    log_dir = os.path.join(os.getcwd(), "logs")
-    os.makedirs(log_dir, exist_ok=True)
-    return os.path.join(log_dir, "model_download.log")
 
 def save_hf_model(model_name="Qwen2.5-0.5B-Instruct", log_file_path=None) -> str:
     """Saves a Hugging Face model locally.
@@ -352,12 +355,16 @@ def save_hf_model(model_name="Qwen2.5-0.5B-Instruct", log_file_path=None) -> str
     """
     # If log_file_path is None or empty, use default path
     if not log_file_path:
-        log_file_path = get_default_log_path()
+        log_file_path = TRAIN_LOG_FILE
     
     # Setup logging
     logger = setup_logger(log_file_path)
     
-    save_path = os.path.join(os.getcwd(), "resources/L2/base_models", model_name)
+    base_dir = os.path.join(os.getcwd(), "resources/L2/base_models")
+    normalized_model_name = os.path.normpath(model_name)
+    if ".." in normalized_model_name or normalized_model_name.startswith("/"):
+        raise ValueError("Invalid model name")
+    save_path = os.path.join(base_dir, normalized_model_name)
     os.makedirs(save_path, exist_ok=True)
 
     from huggingface_hub import list_repo_files, configure_http_backend
@@ -511,7 +518,13 @@ def save_hf_model(model_name="Qwen2.5-0.5B-Instruct", log_file_path=None) -> str
             logger.info(f"Model {model_name} downloaded with {file_count} files.")
         except Exception:
             logger.info(f"Download completed for model: {model_name}.")
-        
+    except requests.RequestException:
+        try:
+            from modelscope.hub.snapshot_download import snapshot_download
+            snapshot_download(model_id=hf_model_name, local_dir=save_path)
+        except Exception as e:
+            logger.error(f"Error downloading model: {str(e)}")
+            raise
     except KeyboardInterrupt:
         logger.warning(f"Download interrupted by user for model: {model_name}")
         raise

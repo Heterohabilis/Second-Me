@@ -1,11 +1,11 @@
 import os
 import sys
 import time
-import logging
 import subprocess
 from typing import Optional, Dict, Any
 
-logger = logging.getLogger(__name__)
+from lpm_kernel.configs.logging import get_train_process_logger
+logger = get_train_process_logger()
 
 
 class ScriptRunner:
@@ -35,13 +35,32 @@ class ScriptRunner:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         return os.path.join(log_dir, f"{script_type}_{timestamp}.log")
 
-    def _check_conda_env(self) -> Optional[str]:
+    def _check_execution_env(self) -> Dict[str, str]:
         """
-        Check current conda environment
+        Get current execution environment information, supporting docker or regular system environment
         Returns:
-            Optional[str]: conda environment name, returns None if not found
+            Dict[str, str]: Dictionary containing environment type and detailed information
         """
-        return os.environ.get("CONDA_DEFAULT_ENV")
+        env_info = {
+            "type": "system",
+            "details": "Unknown environment"
+        }
+        
+        # Check if in docker environment - first check environment variable
+        if os.environ.get("IN_DOCKER_ENV") == "1":
+            env_info["type"] = "docker"
+            env_info["details"] = "docker-env-variable"
+            return env_info
+        
+        # Regular system environment
+        try:
+            import platform
+            system_info = platform.platform()
+            env_info["details"] = system_info
+        except Exception:
+            pass
+            
+        return env_info
 
     def _check_python_version(self) -> str:
         """
@@ -73,11 +92,10 @@ class ScriptRunner:
             if not os.path.exists(script_path):
                 raise FileNotFoundError(f"Script does not exist: {script_path}")
 
-            # Get conda environment
-            conda_env = self._check_conda_env()
-            if not conda_env:
-                raise EnvironmentError("Unable to get conda environment information")
-
+            # Get execution environment information
+            env_info = self._check_execution_env()
+            logger.info(f"Running in environment: {env_info['type']} ({env_info['details']})")
+            
             # Prepare log file
             log_file = self.base_log_path
             logger.info(f"Starting {script_type} task, log file: {log_file}")
@@ -103,7 +121,7 @@ class ScriptRunner:
             from subprocess import PIPE
             
             # Open log file
-            with open(log_file, "w", buffering=1) as f:
+            with open(log_file, "a", buffering=1) as f:
                 process = subprocess.Popen(
                     command,
                     shell=False,  # Use list form of command, no need for shell=True
@@ -139,7 +157,7 @@ class ScriptRunner:
 
             return {
                 "pid": pid,
-                "conda_env": conda_env,
+                "environment": env_info,
                 "log_file": log_file,
                 "exit_code": exit_code,
             }
