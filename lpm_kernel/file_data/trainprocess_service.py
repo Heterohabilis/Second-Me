@@ -77,9 +77,7 @@ class ProcessStep(Enum):
 class Progress:
     """Progress management class"""
 
-    def __init__(
-        self, progress_file: str = "trainprocess_progress.json"
-    ):
+    def __init__(self, progress_file: str):
         progress_dir = os.path.join(os.getcwd(), "data", "progress")
         if not os.path.exists(progress_dir):
             os.makedirs(progress_dir)
