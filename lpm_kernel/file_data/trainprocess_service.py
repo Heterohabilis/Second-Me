@@ -74,7 +74,7 @@ class ProcessStep(Enum):
         return self.value
 
 
-class Progress:
+class TrainProgressHolder:
     """Progress management class"""
 
     def __init__(self, progress_file: str):
@@ -236,7 +236,7 @@ class TrainProcessService:
             # Generate a unique progress file name based on model name
             if current_model_name:
                 progress_file = f"trainprocess_progress_{current_model_name}.json"
-            self.progress = Progress(progress_file)
+            self.progress = TrainProgressHolder(progress_file)
             self.model_name = None  # Initialize as None
             self._initialized = True
             
@@ -261,7 +261,7 @@ class TrainProcessService:
             self.model_name = current_model_name
             # Create new progress instance with updated progress file name
             progress_file = f"trainprocess_progress_{current_model_name}.json"
-            self.progress = Progress(progress_file)
+            self.progress = TrainProgressHolder(progress_file)
         self.is_cot = is_cot
 
     def list_documents(self):
