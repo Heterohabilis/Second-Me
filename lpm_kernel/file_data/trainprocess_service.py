@@ -89,19 +89,19 @@ class Progress:
         # Stage mapping for process steps
         self._stage_mapping = {
             ProcessStep.MODEL_DOWNLOAD: "downloading_the_base_model",
-            
+
             ProcessStep.LIST_DOCUMENTS: "activating_the_memory_matrix",
             ProcessStep.GENERATE_DOCUMENT_EMBEDDINGS: "activating_the_memory_matrix",
             ProcessStep.CHUNK_DOCUMENT: "activating_the_memory_matrix",
             ProcessStep.CHUNK_EMBEDDING: "activating_the_memory_matrix",
-            
+
             ProcessStep.EXTRACT_DIMENSIONAL_TOPICS: "synthesize_your_life_narrative",
             ProcessStep.MAP_ENTITY_NETWORK: "synthesize_your_life_narrative",
-            
+
             ProcessStep.DECODE_PREFERENCE_PATTERNS: "prepare_training_data_for_deep_comprehension",
             ProcessStep.REINFORCE_IDENTITY: "prepare_training_data_for_deep_comprehension",
             ProcessStep.AUGMENT_CONTENT_RETENTION: "prepare_training_data_for_deep_comprehension",
-            
+
             ProcessStep.TRAIN: "training_to_create_second_me",
             ProcessStep.MERGE_WEIGHTS: "training_to_create_second_me",
             ProcessStep.CONVERT_MODEL: "training_to_create_second_me",
@@ -229,7 +229,7 @@ class TrainProcessService:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, base_url: str = None, progress_file: str = "trainprocess_progress.json", current_model_name: str = None, is_cot: bool = False):
+    def __init__(self, base_url: str = None, progress_file: str = None, current_model_name: str = None, is_cot: bool = False):
         if not self._initialized:
             config = Config.from_env()
             self.base_url = base_url or config.KERNEL2_SERVICE_URL
