@@ -30,10 +30,10 @@ from lpm_kernel.api.domains.trainprocess.train_progress import TrainProgress
 from lpm_kernel.api.domains.trainprocess.process_step import ProcessStep
 from lpm_kernel.api.domains.trainprocess.progress_holder import TrainProgressHolder
 from lpm_kernel.train.training_params_manager import TrainingParamsManager
+from lpm_kernel.common.repository.database_session import DatabaseSession
+from lpm_kernel.api.domains.kernel.routes import store_l1_data
 import gc
 import subprocess
-import shlex
-
 from lpm_kernel.configs.logging import get_train_process_logger, TRAIN_LOG_FILE
 logger = get_train_process_logger()
 
@@ -216,12 +216,16 @@ class TrainProcessService:
             # Mark step as in progress
             self.progress.mark_step_status(ProcessStep.GENERATE_BIOGRAPHY, Status.IN_PROGRESS)
             logger.info("Starting biography generation...")
-            
+
             # Generate L1 data and biography
             logger.info("Generating L1 data and biography...")
-            generate_l1_from_l0()
+            l1_data = generate_l1_from_l0()
             logger.info("Successfully generated L1 data and biography")
-            
+
+            # Store L1 data
+            with DatabaseSession.session() as session:
+                store_l1_data(session, l1_data)
+
             # Mark step as completed
             self.progress.mark_step_status(ProcessStep.GENERATE_BIOGRAPHY, Status.COMPLETED)
             logger.info("Biography generation completed successfully")
