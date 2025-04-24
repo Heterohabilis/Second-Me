@@ -48,7 +48,7 @@ class TrainProcessService:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, current_model_name: str = None, is_cot: bool = False):
+    def __init__(self, current_model_name: str = None):
         if not self._initialized:
             # Generate a unique progress file name based on model name
             self.progress = TrainProgressHolder(current_model_name)
@@ -76,7 +76,6 @@ class TrainProcessService:
             self.model_name = current_model_name
             # Create new progress instance with updated progress file name
             self.progress = TrainProgressHolder(current_model_name)
-        self.is_cot = is_cot
 
     def list_documents(self):
         """List all documents"""
@@ -308,7 +307,8 @@ class TrainProcessService:
             self._prepare_l2_data()
 
             # Use data from l2_data dictionary
-            L2Generator(is_cot=self.is_cot).gen_preference_data(                
+            training_params = TrainingParamsManager.get_latest_training_params()
+            L2Generator(is_cot=training_params.get("is_cot", False)).gen_preference_data(                
                     self.l2_data["notes"],
                     self.l2_data["basic_info"],
                     self.l2_data["data_output_base_dir"],
@@ -336,9 +336,11 @@ class TrainProcessService:
             # Get or prepare L2 data
             self._prepare_l2_data()
 
+            # Get training parameters
+            training_params = TrainingParamsManager.get_latest_training_params()
             # Use data from l2_data dictionary
             l2_generator = L2Generator(
-                data_path=os.path.join(os.getcwd(), "resources"), is_cot=self.is_cot
+                data_path=os.path.join(os.getcwd(), "resources"), is_cot=training_params.get("is_cot", False)
                 )  
             l2_generator.gen_selfqa_data(
                     self.l2_data["notes"],
@@ -386,8 +388,10 @@ class TrainProcessService:
             # Get or prepare L2 data
             self._prepare_l2_data()
 
+            # Get training parameters
+            training_params = TrainingParamsManager.get_latest_training_params()
             # Use data from l2_data dictionary
-            l2_generator = L2Generator(data_path=os.path.join(os.getcwd(), "resources"), is_cot=self.is_cot)
+            l2_generator = L2Generator(data_path=os.path.join(os.getcwd(), "resources"), is_cot=training_params.get("is_cot", False))
             l2_generator.gen_diversity_data(
                 self.l2_data["notes"],
                 self.l2_data["basic_info"],
@@ -629,6 +633,7 @@ class TrainProcessService:
             num_train_epochs = training_params.get("number_of_epochs")
             concurrency_threads = training_params.get("concurrency_threads")
             data_synthesis_mode = training_params.get("data_synthesis_mode")
+            is_cot = training_params.get("is_cot", False)
             
             # Log training parameters
             logger.info("Training parameters from latest settings:")
@@ -644,7 +649,8 @@ class TrainProcessService:
                 "--lr", str(learning_rate),
                 "--epochs", str(num_train_epochs),
                 "--threads", str(concurrency_threads),
-                "--mode", str(data_synthesis_mode)
+                "--mode", str(data_synthesis_mode),
+                "--is_cot", str(is_cot)
             ]
             
             # Ensure log directory exists
