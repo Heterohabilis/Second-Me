@@ -94,7 +94,7 @@ python lpm_kernel/L2/train.py \
   --chat_template_format "chatml" \
   --add_special_tokens False \
   --append_concat_token False \
-  --max_seq_length 512 \
+  --max_seq_length 2048 \
   --num_train_epochs $NUM_TRAIN_EPOCHS \
   --save_total_limit 2 \
   --logging_steps 20 \
