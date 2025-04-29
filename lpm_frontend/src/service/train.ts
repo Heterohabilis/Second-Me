@@ -9,7 +9,7 @@ interface ProcessInfo {
   pid: string;
 }
 
-interface ServiceStatusRes {
+export interface ServiceStatusRes {
   process_info?: ProcessInfo;
   is_running?: boolean;
 }
@@ -56,16 +56,23 @@ export interface TrainProgress {
   status: StageStatus;
 }
 
+export interface TrainAdvanceParams {
+  is_cot?: boolean;
+}
+
 export interface TrainingParams {
   concurrency_threads?: number;
   data_synthesis_mode?: string;
   learning_rate?: number;
   number_of_epochs?: number;
+  use_cuda?: boolean;
 }
 
-export interface TrainingConfig extends TrainingParams {
+export interface TrainBaseParams {
   model_name: string;
 }
+
+export type TrainingConfig = TrainingParams & TrainAdvanceParams & TrainBaseParams;
 
 export const startTrain = (config: TrainingConfig) => {
   return Request<CommonResponse<StartTrainResponse>>({
@@ -130,5 +137,21 @@ export const getTrainingParams = () => {
   return Request<CommonResponse<TrainingConfig>>({
     method: 'get',
     url: `/api/trainprocess/training_params`
+  });
+};
+
+export const checkCudaAvailability = () => {
+  return Request<
+    CommonResponse<{
+      cuda_available: boolean;
+      cuda_info: {
+        device_count?: number;
+        current_device?: number;
+        device_name?: string;
+      };
+    }>
+  >({
+    method: 'get',
+    url: '/api/kernel2/cuda/available'
   });
 };

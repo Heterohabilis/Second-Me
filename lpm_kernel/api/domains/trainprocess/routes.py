@@ -3,8 +3,8 @@ from werkzeug.utils import secure_filename
 from flask import Blueprint, jsonify, Response, request
 from charset_normalizer import from_path
 
-from lpm_kernel.train.trainprocess_service import TrainProcessService
-from lpm_kernel.train.training_params_manager import TrainingParamsManager
+from lpm_kernel.api.domains.trainprocess.trainprocess_service import TrainProcessService
+from lpm_kernel.api.domains.trainprocess.training_params_manager import TrainingParamsManager
 from ...common.responses import APIResponse
 from threading import Thread
 
@@ -24,6 +24,7 @@ def start_process():
         number_of_epochs: Number of training epochs (optional)
         concurrency_threads: Number of threads for concurrent processing (optional)
         data_synthesis_mode: Mode for data synthesis (optional)
+        use_cuda: Whether to use CUDA for training (optional)
     
     Includes the following steps:
     1. Health check
@@ -63,22 +64,24 @@ def start_process():
         number_of_epochs = data.get("number_of_epochs", None)
         concurrency_threads = data.get("concurrency_threads", None)
         data_synthesis_mode = data.get("data_synthesis_mode", None)
+        use_cuda = data.get("use_cuda", False)  # Default to False if not provided
+        is_cot = data.get("is_cot", None)
         
         # Log the received parameters
-        logger.info(f"Training parameters: model_name={model_name}, learning_rate={learning_rate}, number_of_epochs={number_of_epochs}, concurrency_threads={concurrency_threads}, data_synthesis_mode={data_synthesis_mode}")
+        logger.info(f"Training parameters: model_name={model_name}, learning_rate={learning_rate}, number_of_epochs={number_of_epochs}, concurrency_threads={concurrency_threads}, data_synthesis_mode={data_synthesis_mode}, is_cot={is_cot}")
 
         # Create service instance with model name and additional parameters
-        train_service = TrainProcessService(
-            current_model_name=model_name
-        )
+        last_train_service = TrainProcessService.get_instance()
         
         # Check if there are any in_progress statuses that need to be reset
-        if train_service.progress.progress.data["status"] == "in_progress":
+        if last_train_service is not None and last_train_service.progress.progress.data["status"] == "in_progress":
             return jsonify(APIResponse.error(
                 message="There is an existing training process that was interrupted.",
                 code=409  # Conflict status code
             ))
             
+
+        train_service = TrainProcessService(current_model_name=model_name)
         if not train_service.check_training_condition():
             train_service.reset_progress()
 
@@ -88,7 +91,9 @@ def start_process():
             "learning_rate": learning_rate,
             "number_of_epochs": number_of_epochs,
             "concurrency_threads": concurrency_threads,
-            "data_synthesis_mode": data_synthesis_mode
+            "data_synthesis_mode": data_synthesis_mode,
+            "use_cuda": use_cuda,  # Make sure to include use_cuda parameter
+            "is_cot": is_cot
         }
         
         params_manager = TrainingParamsManager()
@@ -110,7 +115,9 @@ def start_process():
                     "learning_rate": learning_rate,
                     "number_of_epochs": number_of_epochs,
                     "concurrency_threads": concurrency_threads,
-                    "data_synthesis_mode": data_synthesis_mode
+                    "data_synthesis_mode": data_synthesis_mode,
+                    "use_cuda": use_cuda,  # Include in response
+                    "is_cot": is_cot
                 }
             )
         )
@@ -191,8 +198,12 @@ def reset_progress():
         }
     """
     try:
-        train_service = TrainProcessService()
-        train_service.progress.reset_progress()
+        train_service = TrainProcessService.get_instance()
+        if train_service is not None:
+            train_service.progress.reset_progress()
+            logger.info("Progress reset successfully")
+        else:
+            logger.warning("No active training process found")
 
         return jsonify(APIResponse.success(message="Progress reset successfully"))
     except Exception as e:
@@ -205,7 +216,9 @@ def stop_training():
     """Stop training process and wait until status is suspended"""
     try:
         # Get the TrainProcessService instance
-        train_service = TrainProcessService()  # Need to get instance based on your implementation
+        train_service = TrainProcessService.get_instance()  # Need to get instance based on your implementation
+        if train_service is None:
+            return jsonify(APIResponse.error(message="Failed to stop training: No active training process"))
         
         # Stop the process
         train_service.stop_process()
@@ -230,32 +243,6 @@ def stop_training():
     except Exception as e:
         logger.error(f"Error stopping training process: {str(e)}", exc_info=True)
         return jsonify(APIResponse.error(message=f"Error stopping training process: {str(e)}"))
-
-
-@trainprocess_bp.route("/model_name", methods=["GET"])
-def get_model_name():
-    """
-    Get the model name currently used by the training service
-    
-    Returns:
-        Response: JSON response
-        {
-            "code": 0 for success, non-zero for failure,
-            "message": "Error message",
-            "data": {
-                "model_name": "Model name"
-            }
-        }
-    """
-    try:
-        # Get TrainProcessService instance
-        train_service = TrainProcessService()
-        model_name = train_service.model_name
-        
-        return jsonify(APIResponse.success(data={"model_name": model_name}))
-    except Exception as e:
-        logger.error(f"Failed to get model name: {str(e)}", exc_info=True)
-        return jsonify(APIResponse.error(message=f"Failed to get model name: {str(e)}"))
 
 
 @trainprocess_bp.route("/training_params", methods=["GET"])
@@ -295,6 +282,13 @@ def retrain():
     
     Request parameters:
         model_name: Model name (required)
+        learning_rate: Learning rate for model training (optional)
+        number_of_epochs: Number of training epochs (optional)
+        concurrency_threads: Number of threads for concurrent processing (optional)
+        data_synthesis_mode: Mode for data synthesis (optional)
+        use_cuda: Whether to use CUDA for training (optional)
+        is_cot: Whether to use Chain of Thought (optional)
+        use_previous_params: Whether to use previous training parameters (optional, default True)
     
     Returns:
         Response: JSON response
@@ -315,10 +309,19 @@ def retrain():
         if not model_name:
             return jsonify(APIResponse.error(message="missing necessary parameter: model_name", code=400))
         
+        # Get optional parameters
+        learning_rate = data.get("learning_rate", None)
+        number_of_epochs = data.get("number_of_epochs", None)
+        concurrency_threads = data.get("concurrency_threads", None)
+        data_synthesis_mode = data.get("data_synthesis_mode", None)
+        use_cuda = data.get("use_cuda", False)
+        is_cot = data.get("is_cot", None)
+        
+        # Log the received parameters
+        logger.info(f"Retrain parameters: model_name={model_name}, learning_rate={learning_rate}, number_of_epochs={number_of_epochs}, concurrency_threads={concurrency_threads}, data_synthesis_mode={data_synthesis_mode}, use_cuda={use_cuda}, is_cot={is_cot}, use_previous_params={use_previous_params}")
+        
         # Create training service instance
-        train_service = TrainProcessService(
-            current_model_name=model_name
-        )
+        train_service = TrainProcessService(current_model_name=model_name)
         
         # Check if there are any in_progress statuses that need to be reset
         if train_service.progress.progress.data["status"] == "in_progress":
@@ -326,6 +329,24 @@ def retrain():
             logger.info("There is an existing training process that was interrupted.")
             
         train_service.reset_progress()
+
+        # Save training parameters
+        training_params = {
+            "model_name": model_name,
+            "learning_rate": learning_rate,
+            "number_of_epochs": number_of_epochs,
+            "concurrency_threads": concurrency_threads,
+            "data_synthesis_mode": data_synthesis_mode,
+            "use_cuda": use_cuda,
+            "is_cot": is_cot
+        }
+        
+        params_manager = TrainingParamsManager()
+        # Update the training parameters, optionally using previous params as base
+        params_manager.update_training_params(training_params, use_previous_params=False)
+        
+        # Log training parameters
+        logger.info(f"Saved training parameters: {training_params}")
 
         thread = Thread(target=train_service.start_process)
         thread.daemon = True
@@ -335,7 +356,13 @@ def retrain():
             APIResponse.success(
                 message="Successfully reset progress to data processing stage and started training process",
                 data={
-                    "model_name": model_name
+                    "model_name": model_name,
+                    "learning_rate": learning_rate,
+                    "number_of_epochs": number_of_epochs,
+                    "concurrency_threads": concurrency_threads,
+                    "data_synthesis_mode": data_synthesis_mode,
+                    "use_cuda": use_cuda,
+                    "is_cot": is_cot
                 }
             )
         )

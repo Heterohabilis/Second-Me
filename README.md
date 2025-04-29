@@ -8,6 +8,7 @@
 [![Discord](https://img.shields.io/badge/Chat-Discord-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/GpWHQNUwrg)
 [![Twitter](https://img.shields.io/badge/Follow-@SecondMe_AI-1DA1F2?style=flat-square&logo=x&logoColor=white)](https://x.com/SecondMe_AI1)
 [![Reddit](https://img.shields.io/badge/Join-Reddit-FF4500?style=flat-square&logo=reddit&logoColor=white)](https://www.reddit.com/r/SecondMeAI/)
+[![View FAQ](https://img.shields.io/badge/FAQ-GitBook-blue?style=flat-square)](https://secondme.gitbook.io/secondme/faq)
 
 </div>
 
@@ -60,6 +61,14 @@ Star and join us, and you will receive all release notifications from GitHub wit
  <p align="center">
   <img src="https://github.com/user-attachments/assets/5c14d956-f931-4c25-b0b3-3c2c96cd7581" width="94%" />
 </p>
+
+## FAQ
+
+Got questions about running Second Me, model setup, or memory configuration?
+
+📖 [Check out the FAQ here](https://secondme.gitbook.io/secondme/faq)
+
+
 
 ## Quick Start
 
@@ -124,8 +133,8 @@ make help
 > **Note**: Integrated Setup provides best performance, especially for larger models, as it runs directly on your host system without containerization overhead.
 
 #### Prerequisites
-- Python 3.10+ installed on your system
-- Node.js 18+ and npm installed
+- Python 3.12+ installed on your system (using uv)
+- Node.js 23+ and npm installed
 - Basic build tools (cmake, make, etc.)
 
 #### Setup Steps
@@ -136,17 +145,32 @@ git clone git@github.com:Mindverse/Second-Me.git
 cd Second-Me
 ```
 
-2. Run the integrated setup (installs all dependencies and prepares the environment)
+2. Setup Python Environment Using uv
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment with Python 3.12
+uv venv --python 3.12
+
+# Activate the virtual environment
+source .venv/bin/activate  # Unix/macOS
+# or
+# .venv\Scripts\activate  # Windows
+```
+
+3. Install dependencies
 ```bash
 make setup
 ```
 
-3. Start all services
+4. Start all services
 ```bash
 make restart
 ```
 
-4. After services are started, open your browser and visit:
+5. After services are started, open your browser and visit:
 ```bash
 http://localhost:3000
 ```

@@ -3,12 +3,13 @@ Load Service Module
 
 This module provides service functions for managing Load entities.
 """
-
+import os
 import logging
 from typing import Optional, Dict, Any, Tuple
 from lpm_kernel.models.load import Load
 from lpm_kernel.common.repository.database_session import DatabaseSession
 from lpm_kernel.api.domains.loads.dto import LoadDTO
+from lpm_kernel.api.domains.trainprocess.trainprocess_service import TrainProcessService
 
 logger = logging.getLogger(__name__)
 
@@ -60,10 +61,10 @@ class LoadService:
         """
         try:
             with DatabaseSession.session() as session:
-                # Check if a load record with the same name exists
-                existing_load = session.query(Load).filter(Load.name == name).first()
+                # Check if any load record exists
+                existing_load = session.query(Load).first()
                 if existing_load:
-                    return None, f"A load record with name '{name}' already exists", 400
+                    return None, f"A load record already exists. Only one load record is allowed in the system.", 400
                 
                 # Create a new Load instance
                 new_load = Load(
@@ -106,13 +107,9 @@ class LoadService:
                     return None, "Load record not found", 404
                 
                 # Update fields
-                updatable_fields = ["name", "description", "email", "avatar_data", "instance_id", "status"]
+                updatable_fields = ["name", "description", "email", "avatar_data"]
                 for field in updatable_fields:
                     if field in data:
-                        # Special validation for status field
-                        if field == "status" and data[field] not in ["active", "inactive", "deleted"]:
-                            return None, f"Status must be one of 'active', 'inactive', or 'deleted'", 400
-                        
                         setattr(load, field, data[field])
                 
                 session.commit()
@@ -144,7 +141,7 @@ class LoadService:
         return LoadService.update_load(current_load.id, data)
     
     @staticmethod
-    def update_instance_id(instance_id: str, instance_password: str = None) -> Tuple[bool, Optional[str], int]:
+    def update_instance_credentials(instance_id: str, instance_password: str) -> Tuple[bool, Optional[str], int]:
         """
         Update the instance_id and instance_password of the current load
         
@@ -158,22 +155,34 @@ class LoadService:
             - Error message or None if successful
             - Status code (200 for success, 400/404/500 for errors)
         """
-        try:
-            logger.info(f"Updating instance_id to {instance_id} and instance_password to {instance_password}")
+        try:            
+            logger.info(f"Updating instance credentials: ID={instance_id}, Password={'*****' if instance_password else None}")
+
+            # Get current load
+            current_load, error, status_code = LoadService.get_current_load()
+            if error:
+                return False, error, status_code
+            
+            if not current_load:
+                logger.warning("Load record not found")
+                return False, "Load record not found", 404
+            
+            # Update fields in database
             with DatabaseSession.session() as session:
-                load = session.query(Load).first()
+                load = session.query(Load).get(current_load.id)
                 if not load:
-                    logger.warning("Load record not found")
-                    return False, "Load record not found", 404
+                    logger.warning("Load record not found in database")
+                    return False, "Load record not found in database", 404
                 
                 load.instance_id = instance_id
-                if instance_password:
-                    load.instance_password = instance_password
+                load.instance_password = instance_password
+                
                 session.commit()
-                logger.info(f"Updated instance_id in database to: {instance_id}, instance_password: {instance_password}")
+                
+                logger.info(f"Updated instance credentials successfully")
                 return True, None, 200
         except Exception as e:
-            logger.error(f"Error updating instance_id: {str(e)}", exc_info=True)
+            logger.error(f"Error updating instance credentials: {str(e)}", exc_info=True)
             return False, f"Internal server error: {str(e)}", 500
     
     @staticmethod
@@ -416,10 +425,6 @@ class LoadService:
     def _reset_training_progress() -> None:
         """Reset training progress objects in memory"""
         try:
-            import os
-            # Import training service
-            from lpm_kernel.train.trainprocess_service import TrainProcessService
-            
             # Get all possible training progress file patterns
             base_dir = os.getenv('LOCAL_BASE_DIR', '.')
             progress_dir = os.path.join(base_dir, 'data', 'progress')
@@ -429,20 +434,22 @@ class LoadService:
                         # Extract model name
                         model_name = file.replace('trainprocess_progress_', '').replace('.json', '')
                         # Create a new service instance for each model and reset progress
-                        train_service = TrainProcessService(model_name=model_name)
+                        train_service = TrainProcessService(current_model_name=model_name)
                         train_service.progress.reset_progress()
                         logger.info(f"Reset training progress for model: {model_name}")
             
             # Reset default training progress
-            default_train_service = TrainProcessService()
-            default_train_service.progress.reset_progress()
+            default_train_service = TrainProcessService.get_instance()
+            if default_train_service is not None:
+                default_train_service.progress.reset_progress()
+            
             logger.info("Reset default training progress")
             
             # Reset global training process variables
             from lpm_kernel.api.domains.kernel2.routes_l2 import _training_process, _training_thread, _stopping_training
             if _training_process is not None:
                 logger.info("Resetting global training process variables")
-                _training_process = None
+                _training_process = None 
                 _training_thread = None
                 _stopping_training = False
             
