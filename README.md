@@ -186,30 +186,26 @@ http://localhost:3000
 - [Brainstorming a 15-Day European City Itinerary (Network app)](https://app.secondme.io/example/brainstorming)
 - [Icebreaking as a Speed Dating Match (Network app)](https://app.secondme.io/example/Icebreaker)
 
-## Join the Community
-- [Discord](https://discord.com/invite/GpWHQNUwrg)
-- [Reddit](https://www.reddit.com/r/SecondMeAI/)
-- [X](https://x.com/SecondMe_AI1)
 
-## Coming Soon 
+## What's Next: May 2025
 
-The following features have been completed internally and are being gradually integrated into the open-source project. For detailed experimental results and technical specifications, please refer to our [Technical Report](https://arxiv.org/abs/2503.08102).
+Second Me continues to evolve as the open-source identity infrastructure for AI. Here's what's on deck for May:
 
-### Model Enhancement Features
-- [✓] **Long Chain-of-Thought Training Pipeline**: Enhanced reasoning capabilities through extended thought process training
-- [✓] **Direct Preference Optimization for L2 Model**: Improved alignment with user preferences and intent
-- [ ] **Data Filtering for Training**: Advanced techniques for higher quality training data selection
-- [✓] **Apple Silicon Support**: Native support for Apple Silicon processors with MLX Training and Serving capabilities
+- 🗂️ **Version Control**: Smarter versioning of memory and identity states  
 
-### Product Features
-- [ ] **Natural Language Memory Summarization**: Intuitive memory organization in natural language format
+- 🧠 **Continuous Training Pipelines**: Keep your AI self evolving over time, with ongoing updates based on new memory inputs.
+
+- ⚙️ **Performance & Stability Improvements**: Enhancements across inference ability, model alignment,  and base model upgrades
 
 
 ## Contributing
 
-We welcome contributions to Second Me! Whether you're interested in fixing bugs, adding new features, or improving documentation, please check out our Contribution Guide. You can also support Second Me by sharing your experience with it in your community, at tech conferences, or on social media.
+We’d love for you to help shape what’s coming next — whether it’s fixing bugs, building new features, or improving docs.
 
-For more detailed information about development, please refer to our [Contributing Guide](./CONTRIBUTING.md).
+- 📘 Check out our [Contribution Guide](./CONTRIBUTING.md) to get started  
+- 💻 Submit ideas, issues, or PRs on [GitHub](https://github.com/mindverse/Second-Me)  
+- 💬 Join the conversation and stay updated in our [Discord](https://discord.gg/GpWHQNUwrg) — it’s where the community lives
+
 
 ## Contributors
 
