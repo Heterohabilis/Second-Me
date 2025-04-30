@@ -62,17 +62,10 @@ Star and join us, and you will receive all release notifications from GitHub wit
   <img src="https://github.com/user-attachments/assets/5c14d956-f931-4c25-b0b3-3c2c96cd7581" width="94%" />
 </p>
 
-## FAQ
-
-Got questions about running Second Me, model setup, or memory configuration?
-
-📖 [Check out the FAQ here](https://secondme.gitbook.io/secondme/faq)
-
-
 
 ## Quick Start
 
-### 📊 Model Deployment Memory and Supported Model Size Reference Guide
+### 📊 Model Size vs. Memory (Reference Guide)
 
 *Note: "B" in the table represents "billion parameters model". Data shown are examples only; actual supported model sizes may vary depending on system optimization, deployment environment, and other hardware/software conditions.*
 
@@ -86,97 +79,22 @@ Got questions about running Second Me, model setup, or memory configuration?
 
 > **MLX Acceleration**: Mac M-series users can use [MLX](https://github.com/mindverse/Second-Me/tree/master/lpm_kernel/L2/mlx_training) to run larger models (CLI-only).
 
-### 🐳 Option 1: Docker Setup 
+### ⚡ Get your Second Me running in just 3 steps:
 
-> **Note**: Docker setup on Mac M-Series chips has 25-30% performance overhead compared to integrated setup, but offers easier installation process.
-
-#### Prerequisites
-- Docker and Docker Compose installed on your system
-  - For Docker installation: [Get Docker](https://docs.docker.com/get-docker/)
-  - For Docker Compose installation: [Install Docker Compose](https://docs.docker.com/compose/install/)
-
-- For Windows Users: You can use [MinGW](https://www.mingw-w64.org/) to run `make` commands. You may need to modify the Makefile by replacing Unix-specific commands with Windows-compatible alternatives.
-
-- Memory Usage Settings (important):
-  - Configure these settings in Docker Desktop (macOS) or Docker Desktop (Windows) at: Dashboard -> Settings -> Resources
-  - Make sure to allocate sufficient memory resources (at least 8GB recommended)
-
-#### Setup Steps
-
-1. Clone the repository
 ```bash
-git clone git@github.com:Mindverse/Second-Me.git
+# 1. Clone the repository
+git clone https://github.com/mindverse/Second-Me.git
 cd Second-Me
-```
-
-2. Start the containers
-```bash
+# 2. Start Docker containers
 make docker-up
+# 3. Access the web interface
+# Open your browser and visit: http://localhost:3000
 ```
 
-3. After starting the service (either with local setup or Docker), open your browser and visit:
-```bash
-http://localhost:3000
-```
+👉 For detailed instructions — including integrated (non-Docker) setup, model selection, memory requirements, and platform-specific tips,
+check the full [Deployment Guide on GitBook](https://secondme.gitbook.io/secondme/guides/deployment).
 
-4. View help and more commands
-```bash
-make help
-```
-
-5. For custom Ollama model configuration, please refer to:
-   [Custom Model Config(Ollama)](docs/Custom%20Model%20Config%28Ollama%29.md)
-
-
-### 🚀 Option 2: Integrated Setup (Non-Docker)
-
-> **Note**: Integrated Setup provides best performance, especially for larger models, as it runs directly on your host system without containerization overhead.
-
-#### Prerequisites
-- Python 3.12+ installed on your system (using uv)
-- Node.js 23+ and npm installed
-- Basic build tools (cmake, make, etc.)
-
-#### Setup Steps
-
-1. Clone the repository
-```bash
-git clone git@github.com:Mindverse/Second-Me.git
-cd Second-Me
-```
-
-2. Setup Python Environment Using uv
-
-```bash
-# Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Create virtual environment with Python 3.12
-uv venv --python 3.12
-
-# Activate the virtual environment
-source .venv/bin/activate  # Unix/macOS
-# or
-# .venv\Scripts\activate  # Windows
-```
-
-3. Install dependencies
-```bash
-make setup
-```
-
-4. Start all services
-```bash
-make restart
-```
-
-5. After services are started, open your browser and visit:
-```bash
-http://localhost:3000
-```
-
-> 💡 **Advantages**: This method offers better performance than Docker on Mac & Linux systems while still providing a simple setup process. It installs directly on your host system without containerization overhead. (Windows not tested)
-
+❓ Got questions about setup, models, or any troubleshooting? [Check our FAQ](https://secondme.gitbook.io/secondme/faq).
 
 ## Tutorial and Use Cases
 🛠️ Feel free to follow [User tutorial](https://secondme.gitbook.io/secondme/getting-started) to build your Second Me.
