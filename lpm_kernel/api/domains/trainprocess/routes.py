@@ -288,7 +288,6 @@ def retrain():
         data_synthesis_mode: Mode for data synthesis (optional)
         use_cuda: Whether to use CUDA for training (optional)
         is_cot: Whether to use Chain of Thought (optional)
-        use_previous_params: Whether to use previous training parameters (optional, default True)
     
     Returns:
         Response: JSON response
@@ -318,7 +317,7 @@ def retrain():
         is_cot = data.get("is_cot", None)
         
         # Log the received parameters
-        logger.info(f"Retrain parameters: model_name={model_name}, learning_rate={learning_rate}, number_of_epochs={number_of_epochs}, concurrency_threads={concurrency_threads}, data_synthesis_mode={data_synthesis_mode}, use_cuda={use_cuda}, is_cot={is_cot}, use_previous_params={use_previous_params}")
+        logger.info(f"Retrain parameters: model_name={model_name}, learning_rate={learning_rate}, number_of_epochs={number_of_epochs}, concurrency_threads={concurrency_threads}, data_synthesis_mode={data_synthesis_mode}, use_cuda={use_cuda}, is_cot={is_cot}")
         
         # Create training service instance
         train_service = TrainProcessService(current_model_name=model_name)
