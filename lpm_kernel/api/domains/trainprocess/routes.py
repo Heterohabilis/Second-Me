@@ -126,7 +126,6 @@ def start_process():
         logger.error(f"Training process failed: {str(e)}")
         return jsonify(APIResponse.error(message=f"Training process error: {str(e)}"))
 
-
 @trainprocess_bp.route("/logs", methods=["GET"])
 def stream_logs():
     """Get training logs in real-time"""
@@ -149,6 +148,8 @@ def stream_logs():
                         yield f"data: {line.strip()}\n\n"
                             
                     last_position = log_file.tell()
+                    if not new_lines:
+                        yield f":heartbeat\n\n"
             except Exception as e:
                 # If file reading fails, record error and continue
                 yield f"data: Error reading log file: {str(e)}\n\n"
@@ -165,7 +166,6 @@ def stream_logs():
             'Transfer-Encoding': 'chunked'
         }
     )
-
 
 @trainprocess_bp.route("/progress/<model_name>", methods=["GET"])
 def get_progress(model_name):

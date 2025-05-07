@@ -216,9 +216,6 @@ export default function TrainingPage() {
     if (trainingProgress.status === 'in_progress') {
       setIsTraining(true);
 
-      // Create EventSource connection to get logs
-      updateTrainLog();
-
       if (firstLoadRef.current) {
         scrollPageToBottom();
 
@@ -234,18 +231,14 @@ export default function TrainingPage() {
     ) {
       stopPolling();
       setIsTraining(false);
-
-      // Keep EventSource open to preserve received logs
-      // If resource cleanup is needed, EventSource could be closed here
     }
-
-    // Return cleanup function to ensure EventSource is closed when component unmounts or dependencies change
-    return () => {
-      if (cleanupEventSourceRef.current) {
-        cleanupEventSourceRef.current();
-      }
-    };
   }, [trainingProgress]);
+
+  useEffect(() => {
+    if (isTraining) {
+      updateTrainLog();
+    }
+  }, [isTraining]);
 
   // Cleanup when component unmounts
   useEffect(() => {
@@ -297,7 +290,7 @@ export default function TrainingPage() {
 
   const getDetails = () => {
     // Use EventSource to get logs
-    const eventSource = new EventSource('/api/trainprocess/logs');
+    const eventSource = new EventSource(`/api/trainprocess/logs`);
 
     eventSource.onmessage = (event) => {
       // Don't try to parse as JSON, just use the raw text data directly
@@ -366,6 +359,7 @@ export default function TrainingPage() {
         if (res.data.code === 0) {
           setTrainSuspended(false);
           resetTrainingState();
+          localStorage.removeItem('trainingLogs');
         } else {
           throw new Error(res.data.message || 'Failed to reset progress');
         }
