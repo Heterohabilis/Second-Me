@@ -126,7 +126,6 @@ def start_process():
         logger.error(f"Training process failed: {str(e)}")
         return jsonify(APIResponse.error(message=f"Training process error: {str(e)}"))
 
-
 @trainprocess_bp.route("/logs", methods=["GET"])
 def stream_logs():
     """Get training logs in real-time"""
@@ -149,6 +148,8 @@ def stream_logs():
                         yield f"data: {line.strip()}\n\n"
                             
                     last_position = log_file.tell()
+                    if not new_lines:
+                        yield f":heartbeat\n\n"
             except Exception as e:
                 # If file reading fails, record error and continue
                 yield f"data: Error reading log file: {str(e)}\n\n"
@@ -165,7 +166,6 @@ def stream_logs():
             'Transfer-Encoding': 'chunked'
         }
     )
-
 
 @trainprocess_bp.route("/progress/<model_name>", methods=["GET"])
 def get_progress(model_name):
@@ -244,6 +244,41 @@ def stop_training():
         logger.error(f"Error stopping training process: {str(e)}", exc_info=True)
         return jsonify(APIResponse.error(message=f"Error stopping training process: {str(e)}"))
 
+@trainprocess_bp.route("/step_output_content", methods=["GET"])
+def get_step_output_content():
+    """
+    Get content of output file for a specific training step
+    
+    Request parameters:
+        step_name: Name of the step to get content for, e.g. 'extract_dimensional_topics'
+    
+    Returns:
+        Response: JSON response
+        {
+            "code": 0,
+            "message": "Success",
+            "data": {...}  // Content of the output file, or null if not found
+        }
+    """
+    try:
+        # Get TrainProcessService instance
+        train_service = TrainProcessService.get_instance()
+        if train_service is None:
+            logger.error("No active training process found.")
+            return jsonify(APIResponse.error(message="No active training process found."))
+        
+        # Get step name from query parameters
+        step_name = request.args.get('step_name')
+        if not step_name:
+            return jsonify(APIResponse.error(message="Missing required parameter: step_name", code=400))
+        
+        # Get step output content
+        output_content = train_service.get_step_output_content(step_name)  
+        logger.info(f"Step output content: {output_content}")      
+        return jsonify(APIResponse.success(data=output_content))
+    except Exception as e:
+        logger.error(f"Failed to get step output content: {str(e)}", exc_info=True)
+        return jsonify(APIResponse.error(message=f"Failed to get step output content: {str(e)}"))
 
 @trainprocess_bp.route("/training_params", methods=["GET"])
 def get_training_params():
