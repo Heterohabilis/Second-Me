@@ -126,6 +126,45 @@ def start_process():
         logger.error(f"Training process failed: {str(e)}")
         return jsonify(APIResponse.error(message=f"Training process error: {str(e)}"))
 
+@trainprocess_bp.route("/clean", methods=["POST"])
+def start_clean_process():
+    """
+    Start data cleaning process only, returns progress stream ID
+
+    Returns:
+        Response: JSON response
+        {
+            "code": 0 for success, non-zero for failure,
+            "message": "Error message",
+            "data": {
+                "progress_id": "Progress stream ID"
+            }
+        }
+    """
+    logger.info("Clean process starting...")
+    try:
+        train_service = TrainProcessService.get_instance()
+        if train_service is not None and train_service.progress.progress.data["status"] == "in_progress":
+            return jsonify(APIResponse.error(
+                message="There is an existing process that was interrupted.",
+                code=409
+            ))
+        model_name = "holder"
+        train_service = TrainProcessService(current_model_name=model_name)
+        train_service.reset_progress()
+
+        thread = Thread(target=train_service.start_clean_process)
+        thread.daemon = True
+        thread.start()
+
+        return jsonify(APIResponse.success(
+            message="Clean process started",
+            data={}
+        ))
+    except Exception as e:
+        logger.error(f"Clean process failed: {str(e)}")
+        return jsonify(APIResponse.error(message=f"Clean process error: {str(e)}"))
+
 @trainprocess_bp.route("/logs", methods=["GET"])
 def stream_logs():
     """Get training logs in real-time"""

@@ -39,7 +39,27 @@ class ProcessStep(Enum):
             cls.MERGE_WEIGHTS,
             cls.CONVERT_MODEL,
         ]
-        
+
+    @classmethod
+    def get_clean_steps(cls) -> List["ProcessStep"]:
+        """Get ordered steps"""
+        return [
+            # cls.MODEL_DOWNLOAD, #
+            cls.LIST_DOCUMENTS,
+            cls.GENERATE_DOCUMENT_EMBEDDINGS,
+            cls.CHUNK_DOCUMENT,
+            cls.CHUNK_EMBEDDING,
+            cls.EXTRACT_DIMENSIONAL_TOPICS,
+            cls.GENERATE_BIOGRAPHY,
+            cls.MAP_ENTITY_NETWORK,
+            cls.DECODE_PREFERENCE_PATTERNS,
+            cls.REINFORCE_IDENTITY,
+            cls.AUGMENT_CONTENT_RETENTION,
+            # cls.TRAIN, #
+            # cls.MERGE_WEIGHTS, #
+            # cls.CONVERT_MODEL, #
+        ]
+
     def get_method_name(self) -> str:
         """Get the corresponding method name for this step"""
         return self.value
