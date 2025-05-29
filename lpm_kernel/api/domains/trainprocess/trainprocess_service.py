@@ -1127,6 +1127,61 @@ class TrainProcessService:
                 self.progress.mark_step_status(self.current_step, Status.FAILED)
             return False
 
+    def start_clean_process(self) -> bool:
+        """Start training process"""
+        try:
+            self.is_stopped = False
+            # Store the current process PID
+            self.current_pid = os.getpid()  # Store the PID
+            logger.info(f"Training process started with PID: {self.current_pid}")
+            # Get the ordered list of all steps
+            ordered_steps = ProcessStep.get_clean_steps()
+
+            # Get the last successfully completed step
+            last_successful_step = self.progress.get_last_successful_step()
+            start_index = 0
+            if last_successful_step:
+                start_index = ordered_steps.index(last_successful_step) + 1
+
+            # Start executing from the step after the last successful one
+            for step in ordered_steps[start_index:]:
+                self.current_step = step
+                if self.is_stopped:
+                    logger.info("Training process aborted during step")
+                    self.progress.mark_step_status(step, Status.SUSPENDED)
+                    break  # If stop is requested, exit the loop
+
+                logger.info(f"Starting step: {step.value}")
+
+                # Execute the corresponding method
+                method_name = step.get_method_name()
+                if not hasattr(self, method_name):
+                    logger.error(f"Method {method_name} not found")
+                    self.progress.mark_step_status(step, Status.FAILED)
+                    return False
+
+                method = getattr(self, method_name)
+                success = method()
+
+                if not success:
+                    logger.error(f"Step {step.value} failed")
+                    logger.info(f'Marking step as failed: stage={step.value}, step={step.value}')
+                    self.progress.mark_step_status(step, Status.FAILED)
+                    return False
+                logger.info(f"Step {step.value} completed successfully")
+                # self.progress.mark_step_status(step, Status.COMPLETED)
+            if self.is_stopped:
+                logger.info("Training process was stopped during a step")
+            else:
+                logger.info("Training process completed...")
+
+            return True
+        except Exception as e:
+            logger.error(f"Exception occurred: {str(e)}", exc_info=True)
+            if self.current_step:
+                self.progress.mark_step_status(self.current_step, Status.FAILED)
+            return False
+
     def reset_progress(self):
         """Save current progress
         
