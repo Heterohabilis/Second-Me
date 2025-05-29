@@ -80,3 +80,5 @@ scripts/check_cuda_status.ps1
 scripts/test_cuda_detection.bat
 .env
 .gpu_selected
+lpm_kernel/L2/data_pipeline/graphrag_indexing/.env
+lpm_kernel/L2/data_pipeline/graphrag_indexing/settings.yaml
