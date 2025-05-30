@@ -45,10 +45,13 @@ def detect_embedding_model_dimension(model_name: str) -> Optional[int]:
         "nomic-embed-text:v1.5": 768,
         "mxbai-embed-large": 1024,
         "mxbai-embed-large:v1": 1024,
+
+        "ep-20250126101111-bqjdm": 4096,
     }
     
     # Try to find exact match
     if model_name in model_dimensions:
+        logger.info(f"Detected embedding model: {model_name}, dimension: {model_dimensions[model_name]}")
         return model_dimensions[model_name]
     
     # Try to find partial match
